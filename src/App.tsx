@@ -16,6 +16,8 @@ import { Purchasing } from './ui/screens/Purchasing';
 import { Staff } from './ui/screens/Staff';
 
 export type Act = (fn: (s: GameState) => GameState) => boolean;
+/** Pide confirmación con un diálogo dentro del juego (los diálogos del navegador no siempre están disponibles). */
+export type Confirm = (message: string, confirmLabel: string, onYes: () => void) => void;
 
 const SCREENS = [
   { id: 'bandeja', label: 'Bandeja', icon: '✉' },
@@ -34,6 +36,8 @@ export default function App() {
   const [screen, setScreen] = useState<ScreenId>('bandeja');
   const [toast, setToast] = useState<string | null>(null);
   const [summaryDay, setSummaryDay] = useState<number | null>(null);
+  const [confirmState, setConfirmState] = useState<{ message: string; label: string; onYes: () => void } | null>(null);
+  const askConfirm: Confirm = (message, label, onYes) => setConfirmState({ message, label, onYes });
 
   useEffect(() => {
     if (!toast) return;
@@ -85,12 +89,12 @@ export default function App() {
     if (act(advanceDay)) setSummaryDay(day);
   };
 
-  const restart = () => {
-    if (!confirm('¿Empezar una partida nueva? Se perderá la actual.')) return;
-    deleteSave();
-    setGame(null);
-    setSummaryDay(null);
-  };
+  const restart = () =>
+    askConfirm('¿Empezar una partida nueva? Se perderá la actual.', 'Empezar de nuevo', () => {
+      deleteSave();
+      setGame(null);
+      setSummaryDay(null);
+    });
 
   return (
     <div className="app">
@@ -150,7 +154,7 @@ export default function App() {
         {screen === 'negocio' && <Business game={game} />}
         {screen === 'menu' && <MenuScreen game={game} act={act} />}
         {screen === 'compras' && <Purchasing game={game} act={act} />}
-        {screen === 'personal' && <Staff game={game} act={act} />}
+        {screen === 'personal' && <Staff game={game} act={act} confirm={askConfirm} />}
         {screen === 'finanzas' && <Finance game={game} />}
         {screen === 'objetivos' && <Objectives game={game} />}
         {screen === 'glosario' && <GlossaryScreen />}
@@ -166,6 +170,26 @@ export default function App() {
             setScreen(target as ScreenId);
           }}
         />
+      )}
+      {confirmState && (
+        <div className="modal-backdrop" onClick={() => setConfirmState(null)}>
+          <div className="modal confirm" role="alertdialog" aria-label="Confirmar" onClick={(e) => e.stopPropagation()}>
+            <p>{confirmState.message}</p>
+            <div className="modal-actions">
+              <button onClick={() => setConfirmState(null)}>Cancelar</button>
+              <button
+                className="primary"
+                autoFocus
+                onClick={() => {
+                  confirmState.onYes();
+                  setConfirmState(null);
+                }}
+              >
+                {confirmState.label}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {toast && <div className="toast">{toast}</div>}
     </div>

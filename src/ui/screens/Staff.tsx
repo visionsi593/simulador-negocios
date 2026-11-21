@@ -1,4 +1,4 @@
-import type { Act } from '../../App';
+import type { Act, Confirm } from '../../App';
 import { OWNER_CAPACITY, OWNER_QUALITY, SEVERANCE_DAYS } from '../../sim/data';
 import { fire, hire, setWage } from '../../sim/engine';
 import { capacity, marketWage, teamQuality } from '../../sim/helpers';
@@ -32,7 +32,7 @@ function wageNote(p: Person, candidate = false) {
   return <span className="muted small">Sueldo de mercado</span>;
 }
 
-export function Staff({ game, act }: { game: GameState; act: Act }) {
+export function Staff({ game, act, confirm }: { game: GameState; act: Act; confirm: Confirm }) {
   const payroll = game.employees.reduce((a, e) => a + e.wage, 0);
   return (
     <div className="staff">
@@ -88,9 +88,9 @@ export function Staff({ game, act }: { game: GameState; act: Act }) {
                 <button onClick={() => act((s) => setWage(s, e.id, e.wage * 1.1))}>Subir 10%</button>
                 <button
                   className="danger"
-                  onClick={() => {
-                    if (confirm(`¿Despedir a ${e.name}? Tendrás que pagar ${money(e.wage * SEVERANCE_DAYS)} de finiquito.`)) act((s) => fire(s, e.id));
-                  }}
+                  onClick={() =>
+                    confirm(`¿Despedir a ${e.name}? Tendrás que pagarle ${money(e.wage * SEVERANCE_DAYS)} de finiquito.`, 'Despedir', () => act((s) => fire(s, e.id)))
+                  }
                 >
                   Despedir
                 </button>
