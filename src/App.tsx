@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { advanceDay, dateLabel, newGame, pendingDecisions, weatherLabel } from './sim/engine';
+import { advanceDay, dateLabel, newGame, pendingDecisions, preDayWarnings, weatherLabel } from './sim/engine';
 import { GameError } from './sim/helpers';
-import type { GameState } from './sim/types';
+import type { DayWarning, GameScreen, GameState } from './sim/types';
+import { NavContext } from './ui/nav';
 import { money } from './ui/format';
 import { deleteSave, loadGame, saveGame } from './ui/save';
 import { Business } from './ui/screens/Business';
@@ -19,7 +20,7 @@ export type Act = (fn: (s: GameState) => GameState) => boolean;
 /** Pide confirmación con un diálogo dentro del juego (los diálogos del navegador no siempre están disponibles). */
 export type Confirm = (message: string, confirmLabel: string, onYes: () => void) => void;
 
-const SCREENS = [
+const SCREENS: { id: GameScreen; label: string; icon: string }[] = [
   { id: 'bandeja', label: 'Bandeja', icon: '✉' },
   { id: 'negocio', label: 'Mi negocio', icon: '⌂' },
   { id: 'menu', label: 'Menú y precios', icon: '☰' },
@@ -28,12 +29,21 @@ const SCREENS = [
   { id: 'finanzas', label: 'Finanzas', icon: '$' },
   { id: 'objetivos', label: 'Objetivos', icon: '★' },
   { id: 'glosario', label: 'Glosario', icon: '?' },
-] as const;
-type ScreenId = (typeof SCREENS)[number]['id'];
+];
 
 export default function App() {
   const [game, setGame] = useState<GameState | null>(() => loadGame());
-  const [screen, setScreen] = useState<ScreenId>('bandeja');
+  const [screen, setScreenState] = useState<GameScreen>('bandeja');
+  const [focusTerm, setFocusTerm] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<DayWarning[] | null>(null);
+  const go = useCallback((target: GameScreen, term?: string) => {
+    setScreenState(target);
+    setFocusTerm(term ?? null);
+    setSummaryDay(null);
+    setWarnings(null);
+    window.scrollTo({ top: 0 });
+  }, []);
+  const setScreen = (target: GameScreen) => go(target);
   const [toast, setToast] = useState<string | null>(null);
   const [summaryDay, setSummaryDay] = useState<number | null>(null);
   const [confirmState, setConfirmState] = useState<{ message: string; label: string; onYes: () => void } | null>(null);
@@ -79,14 +89,21 @@ export default function App() {
   const unread = game.messages.filter((m) => !m.read).length;
   const bankrupt = game.status === 'quiebra';
 
+  const playDay = () => {
+    setWarnings(null);
+    const day = game.day;
+    if (act(advanceDay)) setSummaryDay(day);
+  };
+
   const continueDay = () => {
     if (pending.length) {
       setScreen('bandeja');
       setToast('Tienes decisiones pendientes en la bandeja.');
       return;
     }
-    const day = game.day;
-    if (act(advanceDay)) setSummaryDay(day);
+    const found = preDayWarnings(game);
+    if (found.length) setWarnings(found);
+    else playDay();
   };
 
   const restart = () =>
@@ -97,6 +114,7 @@ export default function App() {
     });
 
   return (
+    <NavContext.Provider value={{ screen, go, focusTerm }}>
     <div className="app">
       <header className="topbar">
         <div className="brand">
@@ -167,9 +185,41 @@ export default function App() {
           onClose={() => setSummaryDay(null)}
           onGo={(target) => {
             setSummaryDay(null);
-            setScreen(target as ScreenId);
+            setScreen(target as GameScreen);
           }}
         />
+      )}
+      {warnings && (
+        <div className="modal-backdrop" onClick={() => setWarnings(null)}>
+          <div className="modal" role="alertdialog" aria-label="Antes de abrir" onClick={(e) => e.stopPropagation()}>
+            <h2>Antes de abrir el puesto…</h2>
+            <p className="muted">Revisa esto. Puedes resolverlo o abrir de todos modos.</p>
+            <ul className="warnings">
+              {warnings.map((w, i) => (
+                <li key={i} className={'warning ' + w.severity}>
+                  <span className="warning-mark" aria-label={w.severity === 'alta' ? 'Importante' : 'Aviso'}>
+                    {w.severity === 'alta' ? '!' : 'i'}
+                  </span>
+                  <span className="warning-text">{w.text}</span>
+                  <button
+                    onClick={() => {
+                      setWarnings(null);
+                      setScreen(w.screen);
+                    }}
+                  >
+                    {w.action}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="modal-actions">
+              <button onClick={() => setWarnings(null)}>Revisar</button>
+              <button className="primary" onClick={playDay}>
+                Abrir de todos modos ▶
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {confirmState && (
         <div className="modal-backdrop" onClick={() => setConfirmState(null)}>
@@ -193,5 +243,6 @@ export default function App() {
       )}
       {toast && <div className="toast">{toast}</div>}
     </div>
+    </NavContext.Provider>
   );
 }

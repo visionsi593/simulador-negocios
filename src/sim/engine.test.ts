@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceDay, answer, buy, buyMany, fire, hire, newGame, pendingDecisions, setPrice, suggestPurchase } from './engine';
+import { advanceDay, answer, buy, buyMany, fire, hire, markRead, newGame, pendingDecisions, preDayWarnings, setPrice, suggestPurchase } from './engine';
 import { dishCost, marketPrice, stockOf } from './helpers';
 import type { GameState } from './types';
 
@@ -127,5 +127,25 @@ describe('motor de simulación', () => {
     const s = playDays(newGame('Prueba', SEED), 10);
     const loaded = JSON.parse(JSON.stringify(s)) as GameState;
     expect(advanceDay(loaded)).toEqual(advanceDay(s));
+  });
+
+  it('avisa antes de abrir si no hay ingredientes ni mensajes leídos', () => {
+    const s = newGame('Prueba', SEED);
+    const w = preDayWarnings(s);
+    expect(w[0]).toMatchObject({ severity: 'alta', screen: 'compras' });
+    expect(w.some((x) => x.screen === 'bandeja')).toBe(true);
+  });
+
+  it('no avisa nada cuando todo está en orden', () => {
+    let s = newGame('Prueba', SEED);
+    for (const m of s.messages) s = markRead(s, m.id);
+    s = buyMany(s, suggestPurchase(s, 1));
+    expect(preDayWarnings(s)).toEqual([]);
+  });
+
+  it('avisa cuando un platillo deja muy poco margen', () => {
+    let s = newGame('Prueba', SEED);
+    s = setPrice(s, 'tacos', 25);
+    expect(preDayWarnings(s).some((w) => w.screen === 'menu')).toBe(true);
   });
 });

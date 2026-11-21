@@ -19,6 +19,7 @@ import {
   capacity,
   clamp,
   dishAppeal,
+  dishCost,
   drinkProbability,
   expectedCustomers,
   GameError,
@@ -34,7 +35,7 @@ import {
 import { addLot, canMake, consume, discardLots, maxPortions, stockMap } from './inventory';
 import { Rng } from './rng';
 import { announceObjective, checkObjectives, eventById, maybeStartEvent, teach } from './story';
-import type { Candidate, DayReport, GameState, Weather } from './types';
+import type { Candidate, DayReport, DayWarning, GameState, Weather } from './types';
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-MX');
 
@@ -510,3 +511,101 @@ export function dateLabel(day: number): string {
 
 export const weatherLabel = (w: Weather) => WEATHER[w].label;
 export { priceIndex };
+
+// ---------------------------------------------------------------------------
+// Revisión antes de abrir: cosas importantes que el jugador quizá no vio.
+// ---------------------------------------------------------------------------
+
+export function preDayWarnings(s: GameState): DayWarning[] {
+  const warnings: DayWarning[] = [];
+  const stock = stockMap(s);
+  const platos = s.menu.filter((m) => m.active && DISH_MAP[m.dishId].category === 'plato');
+
+  // Ingredientes: ¿alcanzan para los clientes que se esperan?
+  if (platos.length === 0) {
+    warnings.push({ severity: 'alta', text: 'No tienes ningún platillo activo en el menú: hoy no vas a vender nada.', screen: 'menu', action: 'Ir al menú' });
+  } else {
+    const expected = Math.min(expectedCustomers(s, s.day, s.forecast), capacity(s));
+    // Porciones posibles repartidas como las pediría la gente (sin contar dos veces ingredientes compartidos).
+    const appeal = platos.map((m) => dishAppeal(m.dishId, m.price));
+    const total = appeal.reduce((a, b) => a + b, 0);
+    let servable = Infinity;
+    for (const [i, m] of platos.entries()) {
+      const share = appeal[i] / total;
+      if (share > 0.05) servable = Math.min(servable, maxPortions(stock, m.dishId) / share);
+    }
+    const anyPortion = platos.some((m) => maxPortions(stock, m.dishId) > 0);
+    if (!anyPortion) {
+      warnings.push({ severity: 'alta', text: 'No tienes ingredientes para preparar ningún platillo: hoy no vas a vender nada.', screen: 'compras', action: 'Ir a compras' });
+    } else if (servable < expected * 0.7) {
+      warnings.push({
+        severity: 'media',
+        text: `Se esperan unos ${Math.round(expected)} clientes y con lo que tienes se te van a acabar algunos platillos antes de tiempo.`,
+        screen: 'compras',
+        action: 'Ir a compras',
+      });
+    }
+  }
+
+  // Pedido especial de hoy sin material.
+  for (const o of s.specialOrders.filter((o) => o.day === s.day)) {
+    if (maxPortions(stock, o.dishId) < o.qty) {
+      warnings.push({
+        severity: 'alta',
+        text: `Hoy entregas el pedido de ${o.client} (${o.qty} piezas) y no te alcanzan los ingredientes. Si no cumples, baja tu reputación.`,
+        screen: 'compras',
+        action: 'Ir a compras',
+      });
+    }
+  }
+  for (const o of s.specialOrders.filter((o) => o.day === s.day + 1)) {
+    warnings.push({
+      severity: 'media',
+      text: `Mañana entregas el pedido de ${o.client} (${o.qty} × ${DISH_MAP[o.dishId].name.toLowerCase()}). Planea tus compras.`,
+      screen: 'negocio',
+      action: 'Ver detalles',
+    });
+  }
+
+  // Dinero para cubrir el día.
+  const payroll = s.employees.reduce((a, e) => a + e.wage, 0);
+  if (s.cash < FIXED_COST_PER_DAY + payroll) {
+    warnings.push({
+      severity: 'alta',
+      text: `Tu caja (${money(s.cash)}) no alcanza para la renta y los sueldos de hoy (${money(FIXED_COST_PER_DAY + payroll)}).`,
+      screen: 'finanzas',
+      action: 'Ver finanzas',
+    });
+  }
+
+  // Platillos que dejan muy poco.
+  for (const m of platos) {
+    const cost = dishCost(s, m.dishId);
+    if ((m.price - cost) / m.price < 0.3) {
+      warnings.push({
+        severity: 'media',
+        text: `${DISH_MAP[m.dishId].name} te deja menos del 30% de margen con los precios de hoy.`,
+        screen: 'menu',
+        action: 'Revisar precio',
+      });
+    }
+  }
+
+  // Personal a punto de renunciar.
+  for (const e of s.employees.filter((e) => e.morale < 30)) {
+    warnings.push({ severity: 'media', text: `${e.name} está muy desanimado y podría renunciar.`, screen: 'personal', action: 'Ver personal' });
+  }
+
+  // Mensajes importantes sin leer.
+  const unread = s.messages.filter((m) => !m.read && (m.kind === 'evento' || m.kind === 'personal' || m.kind === 'mentor'));
+  if (unread.length) {
+    warnings.push({
+      severity: 'media',
+      text: unread.length === 1 ? `Tienes un mensaje sin leer: "${unread[0].subject}".` : `Tienes ${unread.length} mensajes importantes sin leer.`,
+      screen: 'bandeja',
+      action: 'Ir a la bandeja',
+    });
+  }
+
+  return warnings.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'alta' ? -1 : 1));
+}

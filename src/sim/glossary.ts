@@ -1,4 +1,5 @@
 // Glosario de conceptos de negocio. Se muestra al pasar el ratón sobre un término.
+import type { GameScreen } from './types';
 
 export interface GlossaryTerm {
   term: string;
@@ -129,4 +130,43 @@ export const GLOSSARY: Record<string, GlossaryTerm> = {
     term: 'Ticket promedio',
     definition: 'Cuánto gasta en promedio cada cliente: ventas entre número de clientes atendidos.',
   },
+};
+
+/** Pantalla del juego donde se trabaja cada concepto. Los que no tienen pantalla abren el glosario. */
+export const TERM_SCREEN: Record<string, GameScreen> = {
+  ventas: 'finanzas',
+  costo_ventas: 'finanzas',
+  costeo_receta: 'menu',
+  utilidad_bruta: 'finanzas',
+  margen_bruto: 'menu',
+  utilidad_neta: 'finanzas',
+  gastos_fijos: 'finanzas',
+  gastos_variables: 'menu',
+  merma: 'compras',
+  inventario: 'compras',
+  peps: 'compras',
+  vida_util: 'compras',
+  venta_perdida: 'negocio',
+  capacidad: 'personal',
+  demanda: 'negocio',
+  pronostico: 'compras',
+  flujo_efectivo: 'finanzas',
+  elasticidad: 'menu',
+  punto_equilibrio: 'finanzas',
+  costo_laboral: 'personal',
+  finiquito: 'personal',
+  reputacion: 'negocio',
+  rotacion: 'personal',
+  ticket_promedio: 'finanzas',
+};
+
+export const SCREEN_NAME: Record<GameScreen, string> = {
+  bandeja: 'Bandeja',
+  negocio: 'Mi negocio',
+  menu: 'Menú y precios',
+  compras: 'Compras e inventario',
+  personal: 'Personal',
+  finanzas: 'Finanzas',
+  objetivos: 'Objetivos',
+  glosario: 'Glosario',
 };

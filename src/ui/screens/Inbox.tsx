@@ -13,10 +13,13 @@ const KIND_LABEL: Record<Message['kind'], string> = {
 };
 
 export function Inbox({ game, act }: { game: GameState; act: Act }) {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const messages = game.messages;
-  const firstPending = messages.find((m) => m.options && !m.choice);
-  const selected = messages.find((m) => m.id === selectedId) ?? firstPending ?? messages.find((m) => !m.read) ?? messages[0];
+  // Al abrir la bandeja se elige un mensaje una sola vez (primero las decisiones, luego lo no leído).
+  // Solo se marca como leído el mensaje que de verdad se muestra.
+  const [selectedId, setSelectedId] = useState<number | null>(
+    () => (messages.find((m) => m.options && !m.choice) ?? messages.find((m) => !m.read) ?? messages[0])?.id ?? null,
+  );
+  const selected = messages.find((m) => m.id === selectedId) ?? messages[0];
 
   useEffect(() => {
     if (selected && !selected.read && !selected.options) act((s) => markRead(s, selected.id));

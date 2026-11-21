@@ -1,17 +1,37 @@
 import { Fragment } from 'react';
-import { GLOSSARY } from '../sim/glossary';
+import { GLOSSARY, SCREEN_NAME, TERM_SCREEN } from '../sim/glossary';
+import { useNav } from './nav';
 
-/** Un término con su definición al pasar el ratón. */
+/**
+ * Un término de negocio: al pasar el ratón muestra su definición y al hacer clic
+ * lleva a la pantalla donde se trabaja ese tema (o al glosario si ya estás ahí).
+ */
 export function Term({ id, children }: { id: string; children?: React.ReactNode }) {
+  const nav = useNav();
   const t = GLOSSARY[id];
   if (!t) return <>{children}</>;
+  const target = TERM_SCREEN[id];
+  const goesToScreen = target && target !== nav.screen;
+  const follow = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (goesToScreen) nav.go(target);
+    else nav.go('glosario', id);
+  };
   return (
-    <span className="term" tabIndex={0}>
+    <span
+      className="term"
+      role="link"
+      tabIndex={0}
+      onClick={follow}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && follow(e)}
+    >
       {children ?? t.term}
       <span className="term-tip" role="tooltip">
         <strong>{t.term}</strong>
         <span>{t.definition}</span>
         {t.example && <em>Ejemplo: {t.example}</em>}
+        <span className="term-go">Clic: {goesToScreen ? `ir a ${SCREEN_NAME[target]}` : 'ver en el glosario'} →</span>
       </span>
     </span>
   );

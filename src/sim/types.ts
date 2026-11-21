@@ -179,3 +179,14 @@ export interface GameState {
   flags: Record<string, number>;
   status: GameStatus;
 }
+
+/** Pantallas del juego (para vincular términos y avisos con el lugar donde se resuelven). */
+export type GameScreen = 'bandeja' | 'negocio' | 'menu' | 'compras' | 'personal' | 'finanzas' | 'objetivos' | 'glosario';
+
+/** Algo que conviene revisar antes de abrir el puesto. */
+export interface DayWarning {
+  severity: 'alta' | 'media';
+  text: string;
+  screen: GameScreen;
+  action: string;
+}

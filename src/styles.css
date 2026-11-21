@@ -322,6 +322,15 @@ ul.plain {
   margin-top: 6px;
   color: var(--muted);
 }
+.term:hover {
+  color: var(--accent-2);
+}
+.term-go {
+  display: block;
+  margin-top: 8px;
+  color: var(--accent-2);
+  font-weight: 600;
+}
 .term:hover .term-tip,
 .term:focus .term-tip {
   display: block;
@@ -767,6 +776,62 @@ ul.plain {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.warnings {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.warning {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.warning.alta {
+  border-color: var(--neg);
+}
+.warning-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--line);
+  color: var(--text);
+}
+.warning.alta .warning-mark {
+  background: var(--neg);
+  color: #fff;
+}
+.warning-text {
+  color: var(--text-2);
+  min-width: 0;
+}
+.gloss-item.focused {
+  outline: 2px solid var(--accent-2);
+}
+.gloss-go {
+  display: block;
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .warning {
+    grid-template-columns: 24px 1fr;
+  }
+  .warning button {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 .modal.confirm {
   width: min(420px, 100%);
